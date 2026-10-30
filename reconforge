@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# ============================================================
+# ReconForge CLI — main entry point.
+# Run from this directory:  ./reconforge <command>
+# Or install globally with: ./reconforge setup
+# ============================================================
+set -Eeuo pipefail
+
+RF_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+# shellcheck source=lib/common.sh
+source "$RF_HOME/lib/common.sh"
+# shellcheck source=lib/registry.sh
+source "$RF_HOME/lib/registry.sh"
+
+# Load all tool-category modules (sorted: 10_subdomain ... 99_gui).
+for _rf_mod in "$RF_HOME"/lib/modules/*.sh; do
+  # shellcheck disable=SC1090
+  source "$_rf_mod"
+done
+unset _rf_mod
+
+# shellcheck source=lib/menu.sh
+source "$RF_HOME/lib/menu.sh"
+# shellcheck source=lib/commands.sh
+source "$RF_HOME/lib/commands.sh"
+
+rf_main() {
+  local cmd="${1:-help}"
+  shift || true
+  case "$cmd" in
+    install)          rf_cmd_install "$@" ;;
+    update)           rf_cmd_update "$@" ;;
+    check|status)     rf_cmd_check "$@" ;;
+    list)             rf_cmd_list "$@" ;;
+    remove|uninstall) rf_cmd_remove "$@" ;;
+    doctor)           rf_cmd_doctor "$@" ;;
+    setup)            rf_cmd_setup "$@" ;;
+    version|-v|--version) printf 'reconforge %s\n' "$RF_VERSION" ;;
+    help|-h|--help)   rf_usage ;;
+    *) err "Unknown command: $cmd"; rf_usage; return 2 ;;
+  esac
+}
+
+rf_main "$@"
