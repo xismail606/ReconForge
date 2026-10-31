@@ -154,6 +154,9 @@ rf_install_cmd_common() {
 # ---------------- install/update core ----------------
 rf_install_core() {
   local verb="$1"
+  # Populate RF_OS_* / RF_ARCH / RF_GOARCH — rf_require_debian and the
+  # header line below depend on these being set.
+  rf_detect_platform
   local -a plan=()
   local t i
 
