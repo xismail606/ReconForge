@@ -20,9 +20,9 @@ rf_usage_install() {
 Usage: reconforge install [options]     (update accepts the same options)
 
 Selection:
-  --all              All CLI categories (wordlists included, GUI excluded)
+  --all              All tool categories except wordlists & GUI (opt in separately)
   --only LIST        Comma-separated categories:
-                     subdomain,web,archive,js,params,content,cloud,osint,wordlists,gui
+                     subdomain,web,archive,js,params,content,exploit,cloud,osint,wordlists,gui
   --tools LIST       Comma-separated tool names (e.g. subfinder,ffuf)
   --gui              Add the GUI category (Burp Suite, Postman)
   --wordlists        Add the wordlists category
@@ -55,8 +55,8 @@ Commands:
   version      Print version
 
 install / update options:
-  --all            All CLI categories (wordlists included, GUI excluded)
-  --only LIST      Categories: subdomain,web,archive,js,params,content,cloud,osint,wordlists,gui
+  --all            All tool categories except wordlists & GUI (opt in separately)
+  --only LIST      Categories: subdomain,web,archive,js,params,content,exploit,cloud,osint,wordlists,gui
   --tools LIST     Specific tools, e.g. --tools subfinder,httpx
   --gui            Include GUI tools (Burp Suite, Postman)
   --wordlists      Include wordlists (SecLists, GF patterns)
@@ -120,9 +120,9 @@ rf_install_cmd_common() {
     RF_SEL_TOOLS="$toolsel"
   else
     if (( all )); then
-      cats+=(subdomain web archive js params content cloud osint wordlists)
+      cats+=(subdomain web archive js params content exploit cloud osint)
     fi
-    (( wl && ! all )) && cats+=(wordlists)
+    (( wl )) && cats+=(wordlists)
     (( gui )) && cats+=(gui)
     if [[ -n "$only" ]]; then
       cats=()

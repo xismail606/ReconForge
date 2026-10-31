@@ -106,7 +106,9 @@ rf_tool_status() {
   i="$(rf_tool_index "$name")" || { printf 'unknown\t'; return 2; }
   bin="${RF_T_BIN[i]}"
   case "${RF_T_TYPE[i]}" in
-    go)         if [[ -x "$RF_GOBIN_DIR/$bin" ]] || have "$bin"; then st="installed"; fi ;;
+    # Go binaries: only trust the reconforge GOBIN — a same-named tool elsewhere
+    # in PATH (e.g. the Python 'httpx' package) must not be reported as ours.
+    go)         if [[ -x "$RF_GOBIN_DIR/$bin" ]]; then st="installed"; fi ;;
     apt)        if dpkg-query -W -f='${db:Status-Abbrev}' "$bin" 2>/dev/null | grep -q '^ii'; then st="installed"; fi ;;
     aptorbuild) if have "$bin"; then st="installed"; fi ;;
     pipx)       if [[ -d "$HOME/.local/pipx/venvs/$name" ]] || have "$bin"; then st="installed"; fi ;;
@@ -156,7 +158,9 @@ LAUNCHER
 # ---------------- install handlers (one per type) ----------------
 rf_inst_go() {
   local i="$1"
-  local name="${RF_T_NAME[i]}" bin="${RF_T_BIN[i]}" spec="${RF_T_SPEC[i]}" rename="${RF_T_EXTRA[i]}"
+  local name="${RF_T_NAME[i]}" bin="${RF_T_BIN[i]}" spec="${RF_T_SPEC[i]}" extra="${RF_T_EXTRA[i]}"
+  local rename="" hook=""
+  if [[ "$extra" == post:* ]]; then hook="${extra#post:}"; else rename="$extra"; fi
   have go || { err "Go toolchain not found."; return 1; }
   log "go install $spec"
   go install "$spec" || { err "go install failed: $spec"; return 1; }
@@ -167,6 +171,13 @@ rf_inst_go() {
   else
     err "Expected binary '$bin' was not produced by: $spec"
     return 1
+  fi
+  if [[ -n "$hook" ]]; then
+    if declare -F "$hook" >/dev/null 2>&1; then
+      "$hook" || true
+    else
+      warn "Post-install hook '$hook' is not defined (bug — please report)."
+    fi
   fi
 }
 
@@ -240,8 +251,13 @@ rf_inst_pysrc() {
     "$venv/bin/python" -m pip install "$dest" >>"$RF_LOG_FILE" 2>&1 \
       || warn "Package install failed for $name; source remains in $dest."
   fi
-  if [[ -f "$dest/$entry" ]]; then
-    rf_write_launcher "$name" "$venv/bin/python" "$dest/$entry"
+  local entry_path="$dest/$entry"
+  if [[ ! -f "$entry_path" ]]; then
+    # tolerate case/name drift after clone (e.g. JSFinder.py vs jsfinder.py)
+    entry_path="$(find "$dest" -maxdepth 1 -iname "$(basename "$entry")" -print -quit 2>/dev/null)"
+  fi
+  if [[ -n "$entry_path" && -f "$entry_path" ]]; then
+    rf_write_launcher "$name" "$venv/bin/python" "$entry_path"
   elif [[ -x "$venv/bin/$name" ]]; then
     ln -sf "$venv/bin/$name" "$RF_LOCAL_BIN/$name"
   else
@@ -258,9 +274,38 @@ rf_inst_gitraw() {
   IFS='|' read -r repo folder entry <<< "$spec"
   dest="$RF_TOOLS_DIR/$folder"
   rf_clone_or_update "$repo" "$dest" || return 1
-  [[ -f "$dest/$entry" ]] || { err "Entrypoint '$entry' not found in $dest."; return 1; }
-  rf_write_launcher "$name" "python3" "$dest/$entry"
+  local entry_path="$dest/$entry"
+  if [[ ! -f "$entry_path" ]]; then
+    entry_path="$(find "$dest" -maxdepth 1 -iname "$(basename "$entry")" -print -quit 2>/dev/null)"
+  fi
+  [[ -n "$entry_path" && -f "$entry_path" ]] \
+    || { err "Entrypoint '$entry' not found in $dest."; return 1; }
+  rf_write_launcher "$name" "python3" "$entry_path"
   ok "Prepared $name (source: $dest)."
+}
+
+# ---------------- post-install hooks ----------------
+rf_post_shuffledns() {
+  have massdns \
+    || warn "shuffledns needs MassDNS to run — it is in the same category, or: reconforge install --tools massdns"
+  local resolvers="${HOME}/tools/recon/resolvers.txt"
+  if [[ ! -s "$resolvers" ]]; then
+    log "Downloading a public DNS resolvers list for shuffledns..."
+    if curl -fsSL --retry 2 -o "$resolvers" \
+         'https://raw.githubusercontent.com/trickest/resolvers/main/resolvers.txt' \
+         && [[ -s "$resolvers" ]]; then
+      ok "Resolvers list saved to $resolvers (use with: shuffledns -r $resolvers)"
+    else
+      rm -f "$resolvers"
+      warn "Could not fetch a resolvers list — shuffledns requires one (-r <file>)."
+    fi
+  fi
+  return 0
+}
+
+rf_post_nuclei() {
+  log "nuclei needs its template library before first use: run 'nuclei -update-templates'."
+  return 0
 }
 
 # spec: repo-url|folder|make-target|binary-relpath|install-name

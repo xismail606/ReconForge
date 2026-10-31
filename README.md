@@ -90,15 +90,16 @@ reconforge install --all --dry-run     # preview the full plan without executing
 reconforge install --tools subfinder,httpx,ffuf
 reconforge install --only subdomain,web
 reconforge install --all --gui         # all CLI categories + Burp/Postman
+reconforge install --wordlists         # SecLists + GF patterns (large download)
 reconforge install --jobs 8            # install with 8 parallel workers
 reconforge update                      # update everything
 reconforge update --only subdomain,web
 reconforge update --tools ffuf
 ```
 
-**Category ids:** `subdomain` · `web` · `archive` · `js` · `params` · `content` · `cloud` · `osint` · `wordlists` · `gui`
+**Category ids:** `subdomain` · `web` · `archive` · `js` · `params` · `content` · `exploit` · `cloud` · `osint` · `wordlists` · `gui`
 
-> `--all` covers categories 1–9 (wordlists included) and excludes the GUI category. Add `--gui` or toggle it in the menu.
+> `--all` covers categories 1–9 (through OSINT) and **excludes** wordlists & GUI — opt in with `--wordlists` / `--gui` or toggle them in the menu (SecLists is a large download, so it is a deliberate choice).
 
 ## Interactive menu
 
@@ -106,14 +107,18 @@ It looks like this — type category numbers to toggle them (e.g. `1 4 7`), or u
 
 ```
   RECONFORGE — Installation Categories
-  Categories selected: 9/10
+  Categories selected: 10/11
 
    1) [x] Subdomain Enumeration
          Subfinder, Amass, MassDNS, Shuffledns, DNSX, SubBrute
    2) [x] Web Discovery
-         HTTPX, FFUF, Katana, Hakrawler, Gospider, Httprobe, Anew
+         HTTPX, FFUF, Katana, Hakrawler, Gospider, Anew
    ...
-  10) [ ] GUI Applications
+   9) [x] OSINT & Intelligence
+         GitDorker, GitHub-Subdomains, Shodan, Censys
+  10) [x] Wordlists
+         SecLists, GF Patterns
+  11) [ ] GUI Applications
          Burpsuite, Postman
 
   <number(s)> toggle · a all · c clear · i install · q quit
@@ -136,20 +141,21 @@ Before anything is downloaded, reconforge verifies every runtime and dependency 
 - `--dry-run` reports the runtime plan too, e.g. `[dry-run] Go is missing — would download the latest stable Go for linux/amd64 (SHA256 verified).`
 - `reconforge doctor` shows the same checks in its `Language runtimes` section.
 
-## Tools (34, in 10 categories)
+## Tools (36, in 11 categories)
 
 | # | Category | Tools |
 |---|---|---|
 | 1 | Subdomain Enumeration | Subfinder, Amass, MassDNS, Shuffledns, DNSX, SubBrute |
-| 2 | Web Discovery | HTTPX, FFUF, Katana, Hakrawler, Gospider, Httprobe, Anew |
+| 2 | Web Discovery | HTTPX, FFUF, Katana, Hakrawler, Gospider, Anew |
 | 3 | URL & Archive Discovery | GAU, Waybackurls |
 | 4 | JavaScript Analysis | LinkFinder, SubJS, JSFinder, GF |
 | 5 | Parameter Discovery | Arjun, ParamSpider |
 | 6 | Content Discovery | Feroxbuster, Dirsearch |
-| 7 | Cloud & API | CloudEnum, S3Scanner, Kiterunner, AWS CLI |
-| 8 | OSINT & Intelligence | GitDorker, GitHub-Subdomains, Shodan, Censys |
-| 9 | Wordlists | SecLists, GF Patterns |
-| 10 | GUI Applications | Burp Suite, Postman |
+| 7 | Exploitation & Scanning | SQLMap, Nuclei |
+| 8 | Cloud & API | CloudEnum, S3Scanner, Kiterunner, AWS CLI |
+| 9 | OSINT & Intelligence | GitDorker, GitHub-Subdomains, Shodan, Censys |
+| 10 | Wordlists | SecLists, GF Patterns |
+| 11 | GUI Applications | Burp Suite, Postman |
 
 ## Files & directories
 
@@ -186,6 +192,8 @@ cat "$(ls -t ~/.local/state/reconforge/logs/* | head -1)"   # latest log
 ```
 
 - A tool failed? Retry only that tool: `reconforge install --tools <name>`
+- **shuffledns** needs MassDNS plus a resolvers list — a public list is auto-downloaded to `~/tools/recon/resolvers.txt` (use with `shuffledns -r ~/tools/recon/resolvers.txt`).
+- **nuclei** needs its template library before first use: `nuclei -update-templates`.
 - OSINT tools need your own tokens: `shodan init <API_KEY>` · `censys config auth add` · GitDorker and github-subdomains need a GitHub PAT.
 
 ## Project structure
